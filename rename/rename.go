@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"flag"
-	"path"
 	"io/ioutil"
 	"fmt"
 	"sort"
@@ -28,7 +27,7 @@ func (fi ByName) Swap(i, j int) {
 }
 
 func (fi ByName) Less(i, j int) bool {
-	return fi.FileInfos[j].ModTime().Unix() > fi.FileInfos[i].ModTime().Unix()
+	return fi.FileInfos[j].Name() > fi.FileInfos[i].Name()
 }
 
 /*
@@ -90,7 +89,7 @@ func main() {
 	}
 
 	// ディレクトリとファイル名に分割して格納
-	var targetPath, filePattern = path.Split(argF)
+	var targetPath string = argF
 
 	// ディレクトリが無い場合は、カレントディレクトリを使用
 	if targetPath == "" {
@@ -98,18 +97,16 @@ func main() {
 	}
 
 	fmt.Printf("変換対象フォルダ: %s\n", targetPath)
-	fmt.Printf("変換対象パターン: %s\n", filePattern)
 	fmt.Printf("トリミング高: %d\n", trim_height)
 	fmt.Printf("トリミング幅: %d\n", trim_width)
 	fmt.Printf("トリミング基準: %s\n", trim_pos_str)
 
 	// 取得しようとしているパスがディレクトリかチェック
-	var isDir, _ = lib.IsDirectory(targetPath + filePattern)
+	var isDir, _ = lib.IsDirectory(argF)
 
 	// ディレクトリならば、そのディレクトリ配下のファイルを調べる。
 	if isDir == true {
-		targetPath = targetPath + filePattern
-		filePattern = ""
+		targetPath = argF
 	}
 
 	// ディレクトリ内のファイル情報の読み込み[] *os.FileInfoが返る。
@@ -122,8 +119,8 @@ func main() {
 	}
 
 	// 直近のディレクトリ名のみ抽出
-	var temps []string = strings.Split(targetPath, "/")
-	var dirName string = temps[len(temps)-2]
+	var temps []string = strings.Split(targetPath, "\\")
+	var dirName string = temps[len(temps)-1]
 
 	// 作成日付順にソート
 	sort.Sort(ByName{fileInfos})
@@ -133,29 +130,22 @@ func main() {
 		// *FileInfo型
 		var findName = (fileInfo).Name()
 		var extName = lib.GetExtension(findName)
-		var matched = true
-		// lsのようなワイルドカード検索を行うため、path.Matchを呼び出す
-		if filePattern != "" {
-			matched, _ = path.Match(filePattern, findName)
-		}
 		// ファイルの先頭が"."の場合はスキップ
 		unicodeName := []rune(findName)
 		compCode := []rune(".")
 		if unicodeName[0] == compCode[0] {
 			continue
 		}
-		// path.Matchでマッチした場合
-		if matched == true {
-			// トリミング実施
-			lib.ExecTrimming(trim_width, trim_height, trim_pos, targetPath + findName)
-			// リネーム後のファイル名
-			rename := dirName + "_" + fmt.Sprintf("%03d", counter) + extName
-			// ファイル名をリネーム
-			if err := os.Rename(targetPath+findName, targetPath+rename); err != nil {
-				fmt.Println(err)
-			}
-			counter++
+		// トリミング実施
+		lib.ExecTrimming(trim_width, trim_height, trim_pos, targetPath + findName)
+		// リネーム後のファイル名
+		rename := dirName + "_" + fmt.Sprintf("%03d", counter) + extName
+		fmt.Println(rename)
+		// ファイル名をリネーム
+		if err := os.Rename(targetPath+"\\"+findName, targetPath+"\\"+rename); err != nil {
+			fmt.Println(err)
 		}
+		counter++
 	}
 
 }
