@@ -31,7 +31,7 @@ func (fi ByName) Less(i, j int) bool {
 }
 
 /*
-対象のフォルダにあるファイルの名前を、対象のディレクトリ名 + "_999"（3桁の連番) + 拡張子 に変換する.
+対象のフォルダにあるファイルの名前を、対象のディレクトリ名 + "_9999"（4桁の連番) + 拡張子 に変換する.
  */
 func main() {
 	var argF, argH, argW, argP string
@@ -139,8 +139,7 @@ func main() {
 		// トリミング実施
 		lib.ExecTrimming(trim_width, trim_height, trim_pos, targetPath + findName)
 		// リネーム後のファイル名
-		rename := dirName + "_" + fmt.Sprintf("%03d", counter) + extName
-		fmt.Println(rename)
+		rename := dirName + "_" + fmt.Sprintf("%04d", counter) + extName
 		// ファイル名をリネーム
 		if err := os.Rename(targetPath+"\\"+findName, targetPath+"\\"+rename); err != nil {
 			fmt.Println(err)
