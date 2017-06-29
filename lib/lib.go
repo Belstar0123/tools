@@ -8,7 +8,23 @@ import (
 	"strings"
 	"github.com/disintegration/imaging"
 	"image"
+	"net/http"
+	"io"
 )
+
+type DownloadError struct {
+	StatusCode int
+}
+func (e *DownloadError) Error() string {
+	return "httpd error!"
+}
+
+type SaveError struct {
+	Filename, Message string
+}
+func (e *SaveError) Error() string {
+	return e.Message
+}
 
 /*
 Parameter
@@ -91,4 +107,69 @@ func ExecTrimming(w int, h int, p imaging.Anchor, path string) {
 			return
 		}
 	}
+}
+
+/*
+指定されたディレクトリを作成
+ */
+func CreateDirectory(path string) (err error) {
+	if err = os.MkdirAll(path, 0777); err != nil {
+		fmt.Errorf("ディレクトリの作成に失敗しました: %s\n", err)
+	}
+	return
+}
+
+/*
+指定されたローカルファイルの存在チェック
+ */
+func IsExists(path string) (isExist bool) {
+	_, err := os.Stat(path) // FileInfo型が返る。
+	isExist = !os.IsNotExist(err)
+	return
+}
+
+/*
+指定されたURLからファイル名を取得
+ */
+func GetFilename(url string) (filename string) {
+	pos := strings.LastIndex(url, "/") + 1
+	filename = url[pos:]
+	return
+}
+
+/*
+指定されたURLの画像を指定されたローカルファイルに保存
+ */
+func DownloadToFile(url string, path string) (err error) {
+	// 既にローカルファイルが存在するかどうかチェック
+	if IsExists(path) {
+		// 存在していたら処理終了
+		return nil
+	}
+
+	// URLのデータを取得
+	response, err := http.Get(url)
+	defer response.Body.Close()
+	if err != nil {
+		fmt.Errorf("URLからのデータ取得に失敗しました :%s\n", err)
+		return err
+	}
+	// 200以外のレスポンスはダウンロードエラーとする
+	if response.StatusCode != http.StatusOK {
+		return &DownloadError{StatusCode: response.StatusCode}
+	}
+	// 書き込むファイルの準備
+	file, err := os.Create(path)
+	defer file.Close()
+	if err != nil {
+		fmt.Errorf("ファイルの書き込みに失敗しました :%s\n", err)
+		return err
+	}
+
+	// データをファイルに書き込み
+	_, err = io.Copy(file, response.Body)
+	if err != nil {
+		return &SaveError{Message: err.Error(), Filename: file.Name()}
+	}
+	return nil
 }
