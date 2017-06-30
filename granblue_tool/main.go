@@ -1,29 +1,32 @@
 package main
 
 import (
-	"github.com/spf13/viper"
+	"bufio"
+	"flag"
 	"fmt"
 	"github.com/Belstar0123/tools/lib"
+	"github.com/spf13/viper"
+	"io/ioutil"
+	"os"
 	"strconv"
-	"flag"
 	"strings"
 )
 
 type EventData struct {
-	Name      string
-	Id        string
-	MaxNo     int
-	AddPrefix string
-	BaseFormat string
-	Mp3LinesCpMaxNo int
-	Mp3LinesQMaxNo int
-	Mp3LinesSMaxNo int
-	Mp3LinesSSubMaxNo int
-	Mp3LinesSPrefix []string
-	Mp3NaviCharacterId []string
-	Mp3NaviCharacterMaxNo int
-	JpgNaviCharacterId []string
-	JpgNaviCharacterMaxNo int
+	Name                   string
+	Id                     string
+	MaxNo                  int
+	AddPrefix              string
+	BaseFormat             string
+	Mp3LinesCpMaxNo        int
+	Mp3LinesQMaxNo         int
+	Mp3LinesSMaxNo         int
+	Mp3LinesSSubMaxNo      int
+	Mp3LinesSPrefix        []string
+	Mp3NaviCharacterId     []string
+	Mp3NaviCharacterMaxNo  int
+	JpgNaviCharacterId     []string
+	JpgNaviCharacterMaxNo  int
 	JpgNaviCharacterPrefix []string
 }
 
@@ -40,6 +43,15 @@ func readConfig() (err error) {
 		fmt.Printf("設定ファイル読み込みエラー: %s\n", err)
 	}
 	return
+}
+
+func arrayContains(arr []string, str string) bool {
+	for _, v := range arr {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
@@ -62,6 +74,38 @@ func main() {
 	if err != nil {
 		// 設定ファイルが読めなかったら処理終了
 		return
+	}
+
+	// 動作ログの取得
+	operation_result_path := viper.GetString("output.operation_result_file_path")
+	fmt.Printf("動作ログ出力先: %s\n", operation_result_path)
+	var r_list, sr_list, ssr_list, e_list []string
+	fp, err := os.Open(operation_result_path)
+	defer fp.Close()
+	if err != nil {
+		// 空ファイルを作成して読み直す
+		ioutil.WriteFile(operation_result_path, []byte(""), os.ModePerm)
+		fp, err = os.Open(operation_result_path)
+		if err != nil {
+			// 作成したファイルが読めなかったから処理終了
+			return
+		}
+	}
+	reader := bufio.NewReaderSize(fp, 51200)
+	line_count := 0
+	for line := ""; err == nil; line, err = reader.ReadString('\n') {
+		line_count++
+		switch line_count {
+		case 1:
+			r_list = strings.Split(line, ",")
+		case 2:
+			sr_list = strings.Split(line, ",")
+		case 3:
+			ssr_list = strings.Split(line, ",")
+		case 4:
+			e_list = strings.Split(line, ",")
+		default:
+		}
 	}
 
 	// 出力先の取得
@@ -205,72 +249,76 @@ func main() {
 
 			// 配列データを処理
 			for _, v := range event_data {
-				fmt.Printf("  ├ イベント[%s] 処理中\n", v.Name)
-				event_output_path := output_path + "/イベント/" + v.Name + "/"
-				lib.CreateDirectory(event_output_path)
-				for n := 0; n <= v.MaxNo; n++ {
-					target_url := fmt.Sprintf(event_base_url, v.Id, v.BaseFormat)
-					target_url = fmt.Sprintf(target_url, n)
-					filename := lib.GetFilename(target_url)
-					target_file_path := event_output_path + filename
-					lib.DownloadToFile(target_url, target_file_path)
-				}
-
-				// prefix分のループ
-				prefixs := strings.Split(v.AddPrefix, ",")
-				for _, prefix := range prefixs {
+				if !arrayContains(e_list, v.Id) {
+					fmt.Printf("  ├ イベント[%s] 処理中\n", v.Name)
+					event_output_path := output_path + "/イベント/" + v.Name + "/"
+					lib.CreateDirectory(event_output_path)
 					for n := 0; n <= v.MaxNo; n++ {
-						target_url := fmt.Sprintf(event_base_url, v.Id+"_"+prefix, v.BaseFormat)
+						target_url := fmt.Sprintf(event_base_url, v.Id, v.BaseFormat)
 						target_url = fmt.Sprintf(target_url, n)
 						filename := lib.GetFilename(target_url)
 						target_file_path := event_output_path + filename
 						lib.DownloadToFile(target_url, target_file_path)
 					}
-				}
 
-				// base_mp3データ
-				for n := 0; n <= v.Mp3LinesCpMaxNo; n++ {
-					for m := 0; m <= v.Mp3LinesQMaxNo; m++ {
-						for k := 0; k <= v.Mp3LinesSMaxNo; k++ {
-							for i := 0; i <= v.Mp3LinesSSubMaxNo; i++ {
-								for _, vv := range v.Mp3LinesSPrefix {
-									target_url := fmt.Sprintf(event_base_mp3_url, v.Id, n, m, k, i, vv)
-									filename := lib.GetFilename(target_url)
-									target_file_path := event_output_path + filename
-									lib.DownloadToFile(target_url, target_file_path)
-								}
-							}
-						}
-					}
-				}
-
-				// base_navi_mp3データ
-				for _, m := range v.Mp3NaviCharacterId {
-					for k := 0;k <= v.Mp3NaviCharacterMaxNo; k++ {
-						target_url := fmt.Sprintf(event_base_navi_url, m, k)
-						filename := lib.GetFilename(target_url)
-						target_file_path := event_output_path + filename
-						lib.DownloadToFile(target_url, target_file_path)
-					}
-				}
-
-				// base_navi_jpgデータ
-				for n := 0; n <= v.JpgNaviCharacterMaxNo; n++ {
-					for _, m := range v.JpgNaviCharacterPrefix {
-						for _, k := range v.JpgNaviCharacterId {
-							target_url := ""
-							if m != "" {
-								target_url = fmt.Sprintf(event_base_navi_jpg_url, k, m+"_", n)
-							} else {
-								target_url = fmt.Sprintf(event_base_navi_jpg_url, k, m, n)
-							}
+					// prefix分のループ
+					prefixs := strings.Split(v.AddPrefix, ",")
+					for _, prefix := range prefixs {
+						for n := 0; n <= v.MaxNo; n++ {
+							target_url := fmt.Sprintf(event_base_url, v.Id+"_"+prefix, v.BaseFormat)
+							target_url = fmt.Sprintf(target_url, n)
 							filename := lib.GetFilename(target_url)
 							target_file_path := event_output_path + filename
 							lib.DownloadToFile(target_url, target_file_path)
 						}
 					}
-				}
 
+					// base_mp3データ
+					for n := 0; n <= v.Mp3LinesCpMaxNo; n++ {
+						for m := 0; m <= v.Mp3LinesQMaxNo; m++ {
+							for k := 0; k <= v.Mp3LinesSMaxNo; k++ {
+								for i := 0; i <= v.Mp3LinesSSubMaxNo; i++ {
+									for _, vv := range v.Mp3LinesSPrefix {
+										target_url := fmt.Sprintf(event_base_mp3_url, v.Id, n, m, k, i, vv)
+										filename := lib.GetFilename(target_url)
+										target_file_path := event_output_path + filename
+										lib.DownloadToFile(target_url, target_file_path)
+									}
+								}
+							}
+						}
+					}
+
+					// base_navi_mp3データ
+					for _, m := range v.Mp3NaviCharacterId {
+						for k := 0; k <= v.Mp3NaviCharacterMaxNo; k++ {
+							target_url := fmt.Sprintf(event_base_navi_url, m, k)
+							filename := lib.GetFilename(target_url)
+							target_file_path := event_output_path + filename
+							lib.DownloadToFile(target_url, target_file_path)
+						}
+					}
+
+					// base_navi_jpgデータ
+					for n := 0; n <= v.JpgNaviCharacterMaxNo; n++ {
+						for _, m := range v.JpgNaviCharacterPrefix {
+							for _, k := range v.JpgNaviCharacterId {
+								target_url := ""
+								if m != "" {
+									target_url = fmt.Sprintf(event_base_navi_jpg_url, k, m+"_", n)
+								} else {
+									target_url = fmt.Sprintf(event_base_navi_jpg_url, k, m, n)
+								}
+								filename := lib.GetFilename(target_url)
+								target_file_path := event_output_path + filename
+								lib.DownloadToFile(target_url, target_file_path)
+							}
+						}
+					}
+					e_list = append(e_list, v.Id)
+				} else {
+					fmt.Println("  ├ イベント画像出力スキップ")
+				}
 			}
 			fmt.Println("  └ イベント画像出力処理終了")
 		} else {
@@ -281,25 +329,25 @@ func main() {
 	// Rキャラクター画像の処理
 	if argR != "" {
 		r_character_members := viper.Get("character.R.members")
-		getCharacterGraphic("R", r_character_members, output_path, argR)
+		getCharacterGraphic("R", r_character_members, output_path, argR, r_list)
 	}
 	// SRキャラクター画像の処理
 	if argSR != "" {
 		sr_character_members := viper.Get("character.SR.members")
-		getCharacterGraphic("SR", sr_character_members, output_path, argSR)
+		getCharacterGraphic("SR", sr_character_members, output_path, argSR, sr_list)
 	}
 	// SSRキャラクター画像の処理
 	if argSSR != "" {
 		ssr_character_members := viper.Get("character.SSR.members")
-		getCharacterGraphic("SSR", ssr_character_members, output_path, argSSR)
+		getCharacterGraphic("SSR", ssr_character_members, output_path, argSSR, ssr_list)
 	}
 	// NPCキャラクター画像の処理
 	if argN == "ON" {
 		sp_character_members := viper.Get("character.sp.members")
-		getCharacterGraphic("sp", sp_character_members, output_path, "")
+		getCharacterGraphic("sp", sp_character_members, output_path, "", []string{})
 		// その他キャラクター画像の処理
 		mob_character_members := viper.Get("character.npc.members")
-		getCharacterGraphic("npc", mob_character_members, output_path, "")
+		getCharacterGraphic("npc", mob_character_members, output_path, "", []string{})
 	}
 
 	// 召喚獣画像の処理
@@ -371,10 +419,20 @@ func main() {
 		}
 	}
 
+	// 処理済みリストの書き出し
+	// Rキャラリスト
+	ioutil.WriteFile(operation_result_path, []byte(strings.Join(r_list, ",")), os.ModePerm)
+	// SRキャラリスト
+	ioutil.WriteFile(operation_result_path, []byte(strings.Join(sr_list, ",")), os.ModePerm)
+	// SSRキャラリスト
+	ioutil.WriteFile(operation_result_path, []byte(strings.Join(ssr_list, ",")), os.ModePerm)
+	// イベントリスト
+	ioutil.WriteFile(operation_result_path, []byte(strings.Join(ssr_list, ",")), os.ModePerm)
+
 }
 
 // レアリティ毎のキャラ画像データを保存する
-func getCharacterGraphic(rarity string, character_members interface{}, output_path string, targetId string) {
+func getCharacterGraphic(rarity string, character_members interface{}, output_path string, targetId string, exclusion_list []string) {
 	if character_members == nil {
 		return
 	}
@@ -403,7 +461,7 @@ func getCharacterGraphic(rarity string, character_members interface{}, output_pa
 				}
 			}
 			if targetId != "" {
-				if targetId != new_character_data.Id {
+				if targetId != "ON" && targetId != new_character_data.Id {
 					continue
 				}
 			}
@@ -413,40 +471,45 @@ func getCharacterGraphic(rarity string, character_members interface{}, output_pa
 		// 配列データを処理
 		for _, v := range character_data {
 			fmt.Printf("処理中... %s\n", v.Name)
-			character_output_path := output_path + "/キャラクター/" + v.Name
-			lib.CreateDirectory(character_output_path)
-			// キャラ画像(開放絵)
-			for _, base_prefix := range character_base_prefixs.([]interface{}) {
-				target_url := fmt.Sprintf(character_base_url, v.Id, base_prefix)
-				filename := lib.GetFilename(target_url)
-				target_file_path := character_output_path + "/" + rarity + "_" + filename
-				lib.DownloadToFile(target_url, target_file_path)
-			}
-			// 表情
-			for _, base_prefix := range character_add_prefix_bases.([]interface{}) {
-				target_prefix := v.Id
-				if len(base_prefix.(string)) > 0 {
-					target_prefix = target_prefix + "_" + base_prefix.(string)
-				}
-				for _, add_prefix := range character_add_prefixs.([]interface{}) {
-					target_prefix_add := target_prefix
-					if len(add_prefix.(string)) > 0 {
-						target_prefix_add = target_prefix_add + "_" + add_prefix.(string)
-					}
-					target_url := fmt.Sprintf(character_add_url, target_prefix_add)
+			if (!arrayContains(exclusion_list, v.Id)) {
+				character_output_path := output_path + "/キャラクター/" + v.Name
+				lib.CreateDirectory(character_output_path)
+				// キャラ画像(開放絵)
+				for _, base_prefix := range character_base_prefixs.([]interface{}) {
+					target_url := fmt.Sprintf(character_base_url, v.Id, base_prefix)
 					filename := lib.GetFilename(target_url)
-					target_file_path_add := character_output_path + "/" + rarity + "_" + filename
-					lib.DownloadToFile(target_url, target_file_path_add)
+					target_file_path := character_output_path + "/" + rarity + "_" + filename
+					lib.DownloadToFile(target_url, target_file_path)
+				}
+				// 表情
+				for _, base_prefix := range character_add_prefix_bases.([]interface{}) {
+					target_prefix := v.Id
+					if len(base_prefix.(string)) > 0 {
+						target_prefix = target_prefix + "_" + base_prefix.(string)
+					}
+					for _, add_prefix := range character_add_prefixs.([]interface{}) {
+						target_prefix_add := target_prefix
+						if len(add_prefix.(string)) > 0 {
+							target_prefix_add = target_prefix_add + "_" + add_prefix.(string)
+						}
+						target_url := fmt.Sprintf(character_add_url, target_prefix_add)
+						filename := lib.GetFilename(target_url)
+						target_file_path_add := character_output_path + "/" + rarity + "_" + filename
+						lib.DownloadToFile(target_url, target_file_path_add)
 
-					// 表情差分
-					for _, no := range character_add_prefix_nos.([]interface{}) {
-						target_prefix_diff := target_prefix_add + no.(string)
-						target_url_diff := fmt.Sprintf(character_add_url, target_prefix_diff)
-						filename_diff := lib.GetFilename(target_url_diff)
-						target_file_path_diff := character_output_path + "/" + rarity + "_" + filename_diff
-						lib.DownloadToFile(target_url_diff, target_file_path_diff)
+						// 表情差分
+						for _, no := range character_add_prefix_nos.([]interface{}) {
+							target_prefix_diff := target_prefix_add + no.(string)
+							target_url_diff := fmt.Sprintf(character_add_url, target_prefix_diff)
+							filename_diff := lib.GetFilename(target_url_diff)
+							target_file_path_diff := character_output_path + "/" + rarity + "_" + filename_diff
+							lib.DownloadToFile(target_url_diff, target_file_path_diff)
+						}
 					}
 				}
+				exclusion_list = append(exclusion_list, v.Id)
+			} else {
+				fmt.Printf("  ├ %sキャラクター画像出力スキップ\n", rarity)
 			}
 		}
 		fmt.Printf("  └ %sキャラクター画像出力処理終了\n", rarity)

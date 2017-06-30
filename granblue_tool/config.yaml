@@ -1,6 +1,7 @@
 #相対パス指定（絶対パスでもイケルと思う）
 output:
   path: "./granblue"
+  operation_result_file_path: "./tmp.log"
 
 #ここ以降は基本触らない方が無難。
 #変更してもいいけど動作は保証しない。
@@ -532,6 +533,8 @@ character:
        id: 3030182000
      - name: "ヴェリトール"
        id: 3030183000
+     - name: "カイン"
+       id: 3030184000
      - name: "ルドミリア"
        id: 3030185000
      - name: "スーテラ(イベントver)"
@@ -543,6 +546,22 @@ character:
        id: 3030188000
      - name: "カリオストロ(イベントver)"
        id: 3030189000
+     - name: "プレデター"
+       id: 3030190000
+     - name: "セワスチアン"
+       id: 3030191000
+     - name: "シャルロッテ(イベントver)"
+       id: 3030192000
+     - name: "新田美波"
+       id: 3030193000
+     - name: "一ノ瀬志希"
+       id: 3030194000
+     - name: "ジャンヌダルク"
+       id: 3030195000
+     - name: "ジャミル(闇属性ver)"
+       id: 3030196000
+     - name: "ウェルダー(イベントver)"
+       id: 3030197000
 
   SSR:
     members:
@@ -797,6 +816,16 @@ character:
      - name: "カリオストロ(闇属性ver)"
        id: 3040120000
        fate_chr_id: 373
+     - name: "クラリス(光属性ver)"
+       id: 3040121000
+     - name: "スカーサハ"
+       id: 3040122000
+     - name: "メドゥーサ"
+       id: 3040123000
+     - name: "バウタオーダ"
+       id: 3040124000
+     - name: "ユグドラシル"
+       id: 3040125000
 
   sp:
     members:
@@ -1280,6 +1309,10 @@ summon:
        id: 2040211000
      - name: "ナハト"
        id: 2040212000
+     - name: "リュミエールグルメ"
+       id: 2040214000
+     - name: "アフロディーテ"
+       id: 2040216000
 
 pc:
   base_url: "http://game-a1.granbluefantasy.jp/assets/img/sp/assets/leader/my/%s_%s_01.png"
